@@ -1,0 +1,14 @@
+{
+  "title": "Test Integration",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Test Title",
+        "description": "Test Description",
+        "data": {
+          "api_key": "Test API Key"
+        }
+      }
+    }
+  }
+}
