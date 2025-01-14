@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     location = config_entry.data.get(CONF_LOCATION)
     name = config_entry.data.get(CONF_NAME) or location
 
-    _LOGGER.debug(api_key, location, name)
+    _LOGGER.debug("%s %s %s", api_key, location, name)
 
     coordinator = CWAWeatherCoordinator(hass, api_key, location)
     await coordinator.async_config_entry_first_refresh()
