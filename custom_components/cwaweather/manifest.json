@@ -1,7 +1,7 @@
 {
   "domain": "cwaweather",
   "name": "CWA Weather",
-  "version": "1.0",
+  "version": "0.1",
   "documentation": "https://github.com/wctang/cwaweather",
   "dependencies": [],
   "codeowners": ["@wctang"],
