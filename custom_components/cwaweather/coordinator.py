@@ -114,13 +114,13 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
         elif self._location == CONF_TRACK_HOME:
             self._latitude = self.hass.config.latitude
             self._longitude = self.hass.config.longitude
-            self._location = await DataGovTw.town_village_point_query(self._latitude, self._longitude)
+            self._location = await DataGovTw.town_village_point_query(self.hass, self._latitude, self._longitude)
 
         _now = datetime.now().astimezone()
         # twice_daily
-        data["twice_daily"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_twice_daily(self._api_key, self._location) if fc[CWA.ATTR_StartTime] >= (_now - timedelta(hours=8))]
+        data["twice_daily"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_twice_daily(self.hass, self._api_key, self._location) if fc[CWA.ATTR_StartTime] >= (_now - timedelta(hours=8))]
         # hourly
-        data["hourly"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_hourly(self._api_key, self._location) if fc[CWA.ATTR_DataTime] >= (_now - timedelta(minutes=45))]
+        data["hourly"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_hourly(self.hass, self._api_key, self._location) if fc[CWA.ATTR_DataTime] >= (_now - timedelta(minutes=45))]
 
         daily = data["twice_daily"][0]
         hourly = data["hourly"][0]
@@ -137,7 +137,7 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
             data[weather.ATTR_FORECAST_UV_INDEX] = daily[weather.ATTR_FORECAST_UV_INDEX]
 
         if self._latitude and self._longitude:
-            res = await CWA.get_observation_now(self._api_key, self._latitude, self._longitude)
+            res = await CWA.get_observation_now(self.hass, self._api_key, self._latitude, self._longitude)
             condition = res[CWA.ATTR_Weather]
             data[weather.ATTR_FORECAST_CONDITION] = condition
             data["extra_attr"] = {

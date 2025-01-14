@@ -15,50 +15,15 @@ import logging
 from datetime import datetime, timedelta
 import re
 import math
-import copy
 import urllib.parse
 import asyncio
-import aiohttp
-import async_timeout
+from .utils import url_get
 from .const import TAIWAN_CITYS_TOWNS
 
 _LOGGER = logging.getLogger(__name__)
 
-async def _aio_call(url, timeout = 10):
-    async with aiohttp.ClientSession() as session:
-        async with async_timeout.timeout(timeout):
-            async with session.get(url) as response:
-                response.raise_for_status()
-                return await response.json()
-
-_data_cache = {}
-async def _api_v1(dataid, params):
-    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{dataid}?{urllib.parse.urlencode(params)}"
-
-    ts = datetime.now().timestamp()
-    _to_delete = [k for k, (t, r) in _data_cache.items() if ts - t >= 60]
-    for k in _to_delete:
-        del _data_cache[k]
-
-    while True:
-        if url in _data_cache:
-            t, r = _data_cache[url]
-            if r is None:
-                _LOGGER.debug("%s wait...", url)
-                await asyncio.sleep(.5)
-                continue
-            else:
-                _LOGGER.debug("%s cached", url)
-                data = r
-                break
-        else:
-            _data_cache[url] = (ts, None)
-            data = await _aio_call(url)
-            _data_cache[url] = (ts, data)
-            _LOGGER.debug("%s fetched", url)
-            break
-
-    return copy.deepcopy(data)
+async def _api_v1(hass, dataid, params):
+    return await url_get(hass, f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{dataid}?{urllib.parse.urlencode(params)}")
 
 class CWA:
     ATTR_StartTime = "StartTime"
@@ -101,7 +66,7 @@ class CWA:
 
 
     @staticmethod
-    async def get_forcast_twice_daily(api_key, location):
+    async def get_forcast_twice_daily(hass, api_key, location):
         locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
         if len(locs) == 1:
             dataid = f"F-D0047-091"
@@ -112,7 +77,7 @@ class CWA:
         else:
             return None
 
-        data = await _api_v1(dataid, {"Authorization": api_key, "LocationName": lname})
+        data = await _api_v1(hass, dataid, {"Authorization": api_key, "LocationName": lname})
 
         locs = data["records"]["Locations"][0]
         loc = locs["Location"][0]
@@ -171,7 +136,7 @@ class CWA:
 
 
     @staticmethod
-    async def get_forcast_hourly(api_key, location):
+    async def get_forcast_hourly(hass, api_key, location):
         locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
         if len(locs) == 1:
             dataid = f"F-D0047-089"
@@ -182,7 +147,7 @@ class CWA:
         else:
             return None
 
-        data = await _api_v1(dataid, {"Authorization": api_key, "LocationName": lname})
+        data = await _api_v1(hass, dataid, {"Authorization": api_key, "LocationName": lname})
 
         locs = data["records"]["Locations"][0]
         loc = locs["Location"][0]
@@ -243,10 +208,10 @@ class CWA:
         return forcasts
 
 
-    async def get_weather_warning(api_key, location):
+    async def get_weather_warning(hass, api_key, location):
         locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
         dataid = f"W-C0033-001"
-        data = await _api_v1(dataid, {"Authorization": api_key, "locationName": locs[0]})
+        data = await _api_v1(hass, dataid, {"Authorization": api_key, "locationName": locs[0]})
 
         locs = data["records"]["location"][0]
         hazards = locs["hazardConditions"]['hazards']
@@ -257,10 +222,10 @@ class CWA:
             print(info, startTime, endTime)
 
 
-    async def get_observation_now(api_key, lat, lon):
+    async def get_observation_now(hass, api_key, lat, lon):
         sts = []
         for dataid in ["O-A0001-001", "O-A0003-001"]: # ["O-A0001-001", "O-A0002-001", "O-A0003-001"]:
-            data = await _api_v1(dataid, {"Authorization": api_key})
+            data = await _api_v1(hass, dataid, {"Authorization": api_key})
             # _LOGGER.debug(pformat(data))
             for station in data["records"]["Station"]:
                 coord = next(x for x in station["GeoInfo"]['Coordinates'] if x['CoordinateName'] == 'WGS84')
