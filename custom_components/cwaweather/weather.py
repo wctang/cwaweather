@@ -13,22 +13,23 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .coordinator import CWAWeatherCoordinator
 from .const import (
     DOMAIN,
+    ATTRIBUTION,
+    MANUFACTURER,
+    MODEL_NAME,
+    HOME_URL,
     CONF_API_KEY,
     CONF_LOCATION,
     CONF_NAME,
 )
 
-# _LOGGER = logging.getLogger(__name__)
-
-def _calculate_unique_id(config_entry: ConfigEntry) -> str:
-    return f"{config_entry.entry_id}"
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     api_key = config_entry.data.get(CONF_API_KEY)
     location = config_entry.data.get(CONF_LOCATION)
     name = config_entry.data.get(CONF_NAME) or location
 
-    print(api_key, location, name)
+    _LOGGER.debug(api_key, location, name)
 
     coordinator = CWAWeatherCoordinator(hass, api_key, location)
     await coordinator.async_config_entry_first_refresh()
@@ -37,10 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 
 class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordinator]):
-    _attr_attribution = (
-        "CWA Weather intergeration"
-        "wctang"
-    )
+    _attr_attribution = ATTRIBUTION
     # _attr_has_entity_name = True
     _attr_supported_features = (
         weather.WeatherEntityFeature.FORECAST_HOURLY |
@@ -53,15 +51,15 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         self._unsubscribe_listener = None
         self._attr_native_temperature_unit = coordinator._attr_native_temperature_unit
         self._attr_native_wind_speed_unit = coordinator._attr_native_wind_speed_unit
-        self._attr_unique_id = _calculate_unique_id(config_entry)
+        self._attr_unique_id = config_entry.entry_id
         self._attr_name = name
         self._attr_device_info = DeviceInfo(
-            name="CWA Weather",
+            name=self.name,
             entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, config_entry.entry_id)},
-            manufacturer="wctang",
-            model="CWA Weather",
-            configuration_url="https://github.com/wctang/cwaweather",
+            identifiers={(DOMAIN, self.unique_id)},
+            manufacturer=MANUFACTURER,
+            model=MODEL_NAME,
+            configuration_url=HOME_URL,
         )
 
     async def async_added_to_hass(self):
@@ -90,7 +88,7 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
 
     @property
     def icon(self) -> str | None:
-        return self.coordinator.data["icon"]
+        return None if "icon" not in self.coordinator.data else self.coordinator.data["icon"]
 
     @property
     def native_temperature(self) -> float | None:
@@ -99,6 +97,10 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
     @property
     def native_apparent_temperature(self) -> float | None:
         return self.coordinator.data[weather.ATTR_FORECAST_NATIVE_APPARENT_TEMP]
+
+    @property
+    def native_pressure(self) -> float | None:
+        return None if weather.ATTR_FORECAST_PRESSURE not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_PRESSURE]
 
     @property
     def humidity(self) -> float | None:
@@ -110,10 +112,6 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
 
     @property
     def native_wind_speed(self) -> float:
-        return self.coordinator.data[weather.ATTR_FORECAST_NATIVE_WIND_SPEED]
-
-    @property
-    def native_wind_speed(self) -> float:
         return None if weather.ATTR_FORECAST_NATIVE_WIND_SPEED not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_NATIVE_WIND_SPEED]
 
     @property
@@ -121,5 +119,17 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         return None if weather.ATTR_FORECAST_WIND_BEARING not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_WIND_BEARING]
 
     @property
+    def native_wind_gust_speed(self) -> float | None:
+        return None if weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED]
+
+    @property
     def uv_index(self) -> float:
         return None if weather.ATTR_FORECAST_UV_INDEX not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_UV_INDEX]
+
+    @property
+    def state_attributes(self):
+        attr = super().state_attributes
+        if "extra_attr" in self.coordinator.data:
+            attr.update(self.coordinator.data["extra_attr"])
+        return attr
+

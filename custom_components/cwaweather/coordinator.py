@@ -5,6 +5,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.components import weather
 from .cwa import CWA
+from .datagovtw import DataGovTw
+from .const import CONF_TRACK_HOME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,8 +51,8 @@ def convet_weather_to_ha_condition(fc):
     _LOGGER.debug(f"{fc[CWA.ATTR_WeatherCode]} = {fc[CWA.ATTR_Weather]}")
     return fc[CWA.ATTR_Weather]
 
-def convet_cwa_to_ha_forcast(fc):
-    forcast = {
+def convet_cwa_to_ha_forcast(fc) -> weather.Forecast:
+    forcast: weather.Forecast = {
         weather.ATTR_FORECAST_TIME: fc[CWA.ATTR_DataTime if CWA.ATTR_DataTime in fc else CWA.ATTR_StartTime],
         weather.ATTR_FORECAST_CONDITION: convet_weather_to_ha_condition(fc),
     }
@@ -88,8 +90,8 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, api_key: str, location: str):
         self._api_key = api_key
         self._location = location
-        self._latitude = hass.config.latitude
-        self._longitude = hass.config.longitude
+        self._latitude = None
+        self._longitude = None
         super().__init__(hass, _LOGGER, name=self._location, update_interval=timedelta(minutes=randrange(55, 65)))
 
     def get_forcasts(self, kind) -> list[weather.Forecast] | None:
@@ -105,9 +107,21 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
             return None
 
     async def _async_update_data(self):
-        data = {}
-        data["twice_daily"] = await self.process_forcast_twice_daily()
-        data["hourly"] = await self.process_forcast_hourly()
+        data = self.data or {}
+
+        if self._location is None:
+            return data
+        elif self._location == CONF_TRACK_HOME:
+            self._latitude = self.hass.config.latitude
+            self._longitude = self.hass.config.longitude
+            self._location = await DataGovTw.town_village_point_query(self._latitude, self._longitude)
+
+        _now = datetime.now().astimezone()
+        # twice_daily
+        data["twice_daily"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_twice_daily(self._api_key, self._location) if fc[CWA.ATTR_StartTime] >= (_now - timedelta(hours=8))]
+        # hourly
+        data["hourly"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_hourly(self._api_key, self._location) if fc[CWA.ATTR_DataTime] >= (_now - timedelta(minutes=45))]
+
         daily = data["twice_daily"][0]
         hourly = data["hourly"][0]
 
@@ -126,6 +140,13 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
             res = await CWA.get_observation_now(self._api_key, self._latitude, self._longitude)
             condition = res[CWA.ATTR_Weather]
             data[weather.ATTR_FORECAST_CONDITION] = condition
+            data["extra_attr"] = {
+                CWA.ATTR_ObsTime: res[CWA.ATTR_ObsTime],
+                CWA.ATTR_StationName: res[CWA.ATTR_StationName],
+                CWA.ATTR_StationId: res[CWA.ATTR_StationId],
+                CWA.ATTR_StationLatitude: res[CWA.ATTR_StationLatitude],
+                CWA.ATTR_StationLongitude: res[CWA.ATTR_StationLongitude],
+            }
             if "雨" in condition:
                 data["icon"] = "mdi:weather-rainy"
             elif "雲" in condition or "陰" in condition:
@@ -138,17 +159,12 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
             else:
                 data["icon"] = "mdi:alert-circle-outline"
 
+            data[weather.ATTR_FORECAST_PRESSURE] = res[CWA.ATTR_AirPressure]
             data[weather.ATTR_FORECAST_NATIVE_TEMP] = res[CWA.ATTR_AirTemperature]
             data[weather.ATTR_FORECAST_HUMIDITY] = res[CWA.ATTR_RelativeHumidity]
             data[weather.ATTR_FORECAST_NATIVE_WIND_SPEED] = res[CWA.ATTR_WindSpeed]
+            data[weather.ATTR_FORECAST_WIND_BEARING] = res[CWA.ATTR_WindDirection]
+            data[weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED] = res[CWA.ATTR_PeakGustSpeed]
+            data[weather.ATTR_FORECAST_UV_INDEX] = res[CWA.ATTR_UVIndex]
 
         return data
-
-    async def process_forcast_twice_daily(self):
-        _now = datetime.now().astimezone() - timedelta(hours=8)
-        return [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_twice_daily(self._api_key, self._location) if fc[CWA.ATTR_StartTime] >= _now]
-
-    async def process_forcast_hourly(self):
-        _now = datetime.now().astimezone() - timedelta(minutes=45)
-        return [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_hourly(self._api_key, self._location) if fc[CWA.ATTR_DataTime] >= _now]
-
