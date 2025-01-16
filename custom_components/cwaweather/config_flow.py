@@ -1,3 +1,4 @@
+import re
 from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
@@ -7,27 +8,31 @@ from homeassistant.config_entries import (
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import selector, TextSelector, TextSelectorConfig, TextSelectorType
-
+from homeassistant.components import zone
 from .const import (
     DOMAIN,
     CONF_API_KEY,
     CONF_NAME,
     CONF_LOCATION,
-    CONF_TRACK_HOME,
     TAIWAN_CITYS_TOWNS,
+    SELECT_ITEM_TRACK_PREFIX,
+    SELECT_ITEM_TRACK_REGEX,
 )
+
 
 def _build_schema(hass, options: dict, is_options_flow: bool = False, show_advanced_options: bool = False) -> vol.Schema:
     options = options or {}
 
-    taiwanlocations = [CONF_TRACK_HOME]
+    taiwanlocations = []
+    for entity in hass.states.async_all(zone.DOMAIN):
+        taiwanlocations.append(f"{SELECT_ITEM_TRACK_PREFIX}{entity.attributes["friendly_name"]} ({entity.entity_id})")
     for k, v in TAIWAN_CITYS_TOWNS.items():
         taiwanlocations.extend(f"{k}-{vi}" for vi in v[1])
 
     spec = {
-        vol.Required(CONF_API_KEY, default=options.get(CONF_API_KEY, "")): cv.string,
-        vol.Optional(CONF_NAME, description={"suggested_value": hass.config.location_name}): cv.string,
-        vol.Required(CONF_LOCATION, default=options.get(CONF_LOCATION, CONF_TRACK_HOME)): vol.In(taiwanlocations),
+        vol.Required(CONF_API_KEY, description={"suggested_value": options.get(CONF_API_KEY, "")}): cv.string,
+        vol.Optional(CONF_NAME, description={"suggested_value": options.get(CONF_NAME, "")}): cv.string,
+        vol.Required(CONF_LOCATION, description={"suggested_value": options.get(CONF_LOCATION, "")}): vol.In(taiwanlocations),
     }
     return vol.Schema(spec)
 
@@ -40,7 +45,10 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            name = user_input.get(CONF_NAME) or user_input.get(CONF_LOCATION)
+            if (name := user_input.get(CONF_NAME)) is None:
+                if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
+                    name = m[1]
+
             return self.async_create_entry(title=name, data=user_input)
 
         return self.async_show_form(step_id="user", errors=errors, data_schema=_build_schema(self.hass, user_input))
@@ -48,9 +56,12 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class CWAWeatherOptionsFlow(OptionsFlow):
-    async def async_step_init(self, user_input = None) -> ConfigFlowResult:
+    async def async_step_init(self, user_input) -> ConfigFlowResult:
         if user_input is not None:
-            name = user_input.get(CONF_NAME) or user_input.get(CONF_LOCATION)
+            if (name := user_input.get(CONF_NAME)) is None:
+                if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
+                    name = m[1]
+
             self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
             return self.async_create_entry(title=name, data=user_input)
 

@@ -3,9 +3,10 @@
 # https://www.cwa.gov.tw/V8/C/K/Weather_Icon.html
 
 import logging
-
+import asyncio
+import re
+from random import randrange
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry
 from homeassistant.components import weather
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -20,21 +21,34 @@ from .const import (
     CONF_API_KEY,
     CONF_LOCATION,
     CONF_NAME,
+    SELECT_ITEM_TRACK_REGEX,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     api_key = config_entry.data.get(CONF_API_KEY)
+    name = config_entry.data.get(CONF_NAME)
     location = config_entry.data.get(CONF_LOCATION)
-    name = config_entry.data.get(CONF_NAME) or location
 
-    _LOGGER.debug("%s %s %s", api_key, location, name)
+    if m := re.match(SELECT_ITEM_TRACK_REGEX, location):
+        if not name:
+            name = m[1]
+        location = m[2]
+
+    await asyncio.sleep(randrange(0, 3))
+    _LOGGER.info("%s %s %s", api_key, name, location)
 
     coordinator = CWAWeatherCoordinator(hass, api_key, location)
     await coordinator.async_config_entry_first_refresh()
 
-    async_add_entities([CWAWeatherEntity(coordinator, config_entry, name)], True)
+    # print("=============")
+    # from homeassistant.helpers import entity_registry
+    # er = entity_registry.async_get(hass)
+    # eid = er.async_get_entity_id("weather", "cwaweather", config_entry.entry_id)
+    # print(eid)
+
+    async_add_entities([CWAWeatherEntity(coordinator, config_entry, name or location)], True)
 
 
 class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordinator]):
@@ -129,7 +143,6 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
     @property
     def state_attributes(self):
         attr = super().state_attributes
-        if "extra_attr" in self.coordinator.data:
-            attr.update(self.coordinator.data["extra_attr"])
+        attr.update(self.coordinator.extra_attributes)
         return attr
 
