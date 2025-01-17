@@ -5,7 +5,7 @@ from .utils import url_get
 from xml.etree import ElementTree
 
 class DataGovTw:
-     async def town_village_point_query(hass, lat, lon):
+    async def town_village_point_query(hass, lat, lon):
         res = await url_get(hass, f"https://api.nlsc.gov.tw/other/TownVillagePointQuery/{lon}/{lat}", is_json = False)
         res = ElementTree.fromstring(res)
 

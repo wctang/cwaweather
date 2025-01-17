@@ -37,7 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         location = m[2]
 
     await asyncio.sleep(randrange(0, 3))
-    _LOGGER.info("%s %s %s", api_key, name, location)
+    _LOGGER.info("'%s' '%s' '%s'", api_key, name, location)
 
     coordinator = CWAWeatherCoordinator(hass, api_key, location)
     await coordinator.async_config_entry_first_refresh()
@@ -101,44 +101,40 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         return self._attr_state
 
     @property
-    def icon(self) -> str | None:
-        return None if "icon" not in self.coordinator.data else self.coordinator.data["icon"]
-
-    @property
     def native_temperature(self) -> float | None:
-        return self.coordinator.data[weather.ATTR_FORECAST_NATIVE_TEMP]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_TEMP)
 
     @property
     def native_apparent_temperature(self) -> float | None:
-        return self.coordinator.data[weather.ATTR_FORECAST_NATIVE_APPARENT_TEMP]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_APPARENT_TEMP)
 
     @property
     def native_pressure(self) -> float | None:
-        return None if weather.ATTR_FORECAST_PRESSURE not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_PRESSURE]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_PRESSURE)
 
     @property
     def humidity(self) -> float | None:
-        return self.coordinator.data[weather.ATTR_FORECAST_HUMIDITY]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_HUMIDITY)
 
     @property
     def native_dew_point(self) -> float:
-        return self.coordinator.data[weather.ATTR_FORECAST_NATIVE_DEW_POINT]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_DEW_POINT)
 
     @property
     def native_wind_speed(self) -> float:
-        return None if weather.ATTR_FORECAST_NATIVE_WIND_SPEED not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_NATIVE_WIND_SPEED]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_WIND_SPEED)
 
     @property
     def wind_bearing(self) -> float:
-        return None if weather.ATTR_FORECAST_WIND_BEARING not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_WIND_BEARING]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_WIND_BEARING)
 
     @property
     def native_wind_gust_speed(self) -> float | None:
-        return None if weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED)
 
     @property
     def uv_index(self) -> float:
-        return None if weather.ATTR_FORECAST_UV_INDEX not in self.coordinator.data else self.coordinator.data[weather.ATTR_FORECAST_UV_INDEX]
+        return self.coordinator.data.get(weather.ATTR_FORECAST_UV_INDEX)
 
     @property
     def state_attributes(self):

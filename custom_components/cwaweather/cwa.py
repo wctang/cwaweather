@@ -118,8 +118,8 @@ class CWA:
 
         locs = data["records"]["Locations"][0]
         loc = locs["Location"][0]
-        we = loc["WeatherElement"]
 
+        we = loc["WeatherElement"]
         if (item := next((x for x in we if x['ElementName'] == '溫度'), None)) is None:
             return None
 
@@ -142,7 +142,12 @@ class CWA:
                 it = next(it for it in itime if fot <= it[CWA.ATTR_DataTime])
                 forcast.update(it["ElementValue"][0])
 
-        return forcasts
+        return {
+            "Latitude": float(loc["Latitude"]),
+            "Longitude": float(loc["Longitude"]),
+            "LocationName": loc["LocationName"],
+            "Forecasts": forcasts
+        }
 
 
     async def get_weather_warning(hass, api_key, location):

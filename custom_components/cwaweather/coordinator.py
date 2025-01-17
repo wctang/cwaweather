@@ -1,6 +1,5 @@
 from datetime import timedelta, datetime
 import logging
-import re
 import math
 import operator
 from collections import Counter
@@ -154,15 +153,22 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
         self._api_key = api_key
 
         self._force_refresh = False
-        self._latitude = None
-        self._longitude = None
 
         if location.startswith("zone."):
-            self._location = None
+            if (zoneentity := self.hass.states.get(location)) is None:
+                _LOGGER.error("Cant find tracking zone entity: %s", location)
+                return
+
             self._tracking = location
+            self._latitude = zoneentity.attributes.get("latitude")
+            self._longitude = zoneentity.attributes.get("longitude")
+            self._location = None
+
         else:
             self._location = location
             self._tracking = None
+            self._latitude = None
+            self._longitude = None
             self.extra_attributes["location"] = self._location
 
         if self._tracking:
@@ -170,42 +176,44 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
             async_track_state_change_event(hass, self._tracking, self._watched_entity_change)
 
 
-    async def _watched_entity_change(self, event: Event[EventStateChangedData]) -> None:
-        if event is None:
-            newstate = self.hass.states.get("zone.home")
-        else:
-            newstate = event.data["new_state"]
+    async def _update_tracking_location(self) -> None:
+        self._location = await DataGovTw.town_village_point_query(self.hass, self._latitude, self._longitude)
+        self.extra_attributes["latitude"] = self._latitude
+        self.extra_attributes["longitude"] = self._longitude
+        self.extra_attributes["location"] = self._location
+        self._force_refresh = True
 
+    async def _watched_entity_change(self, event: Event[EventStateChangedData]) -> None:
+        newstate = event.data["new_state"]
         if newstate.attributes.get("latitude") == self._latitude and newstate.attributes.get("longitude") == self._longitude:
             return
 
         print("update location: ", newstate)
         self._latitude = newstate.attributes.get("latitude")
         self._longitude = newstate.attributes.get("longitude")
-        self._location = await DataGovTw.town_village_point_query(self.hass, self._latitude, self._longitude)
-        self.extra_attributes["latitude"] = self._latitude
-        self.extra_attributes["longitude"] = self._longitude
-        self.extra_attributes["location"] = self._location
-        self._force_refresh = True
+        await self._update_tracking_location()
         await self.async_refresh()
-
 
     async def _async_update_data(self):
         data = self.data or {}
         extra_attr = self.extra_attributes
 
         if self._location is None:
-            await self._watched_entity_change(None)
-
-        if self._location is None:
-            return data
+            await self._update_tracking_location()
+            if self._location is None:
+                return data
 
         _now = datetime.now().astimezone()
 
         # refresh forecasts
         # 發布時機：每日 05:30、11:30、17:30、23:30,  更新頻率：每 6 小時
         if self._force_refresh or (datas := data.get("hourly", None)) is None or _now > (datas[0][weather.ATTR_FORECAST_TIME] + timedelta(hours=5.8)):
-            data["hourly"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_hourly(self.hass, self._api_key, self._location)]
+            res = await CWA.get_forcast_hourly(self.hass, self._api_key, self._location)
+            if self._latitude is None and self._longitude is None:
+                self._latitude = res["Latitude"]
+                self._longitude = res["Longitude"]
+                print("Update location '%s' positon as (%s,%s)", self._location, self._latitude, self._longitude)
+            data["hourly"] = [convet_cwa_to_ha_forcast(fc) for fc in res["Forecasts"]]
             data["twice_daily"] = [convet_cwa_to_ha_forcast(fc) for fc in await CWA.get_forcast_twice_daily(self.hass, self._api_key, self._location)]
             self._force_refresh = False
             print(f"refresh forecasts {self._location}, {_now}, {data["hourly"][0][weather.ATTR_FORECAST_TIME]}")
@@ -224,9 +232,9 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
         if weather.ATTR_FORECAST_UV_INDEX in daily:
             data[weather.ATTR_FORECAST_UV_INDEX] = daily[weather.ATTR_FORECAST_UV_INDEX]
 
-        extra_attr["weather"] = hourly[CWA.ATTR_Weather]
+        extra_attr["forecast_weather"] = hourly[CWA.ATTR_Weather]
         # extra_attr[CWA.ATTR_WeatherCode] = hourly[CWA.ATTR_WeatherCode]
-        extra_attr["weather_description"] = hourly[CWA.ATTR_WeatherDescription]
+        extra_attr["forecast_weather_description"] = hourly[CWA.ATTR_WeatherDescription]
 
         if self._latitude and self._longitude:
             sts = await CWA.get_observation_stations(self.hass, self._api_key)
@@ -234,7 +242,7 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
                 st["_distance"] = math.sqrt(math.pow(st['StationLatitude'] - self._latitude, 2) + math.pow(st['StationLongitude'] - self._longitude, 2))
 
             weathers = []
-            has_station = None
+            has_station = False
             has_persure = False
             for st in sorted(sts, key=operator.itemgetter("_distance")):
                 if st["_distance"] > 0.3:
@@ -247,29 +255,29 @@ class CWAWeatherCoordinator(DataUpdateCoordinator):
                     has_persure = True
                     data[weather.ATTR_FORECAST_PRESSURE] = st[CWA.ATTR_AirPressure]
 
-                if has_station is None and CWA.ATTR_AirTemperature in st and CWA.ATTR_RelativeHumidity in st:
-                    has_station = st
+                if not has_station and CWA.ATTR_AirTemperature in st and CWA.ATTR_RelativeHumidity in st:
+                    has_station = True
+                    print(f"refresh observation {self._location}, {_now}, {st[CWA.ATTR_ObsTime]}")
                     data[weather.ATTR_FORECAST_NATIVE_TEMP] = st[CWA.ATTR_AirTemperature]
                     data[weather.ATTR_FORECAST_HUMIDITY] = st[CWA.ATTR_RelativeHumidity]
 
-            extra_attr["weathers"] = ",".join(weathers)
+                    extra_attr["station_name"] = st[CWA.ATTR_StationName]
+                    extra_attr["station_id"] = st[CWA.ATTR_StationId]
+                    extra_attr["station_latitude"] = st[CWA.ATTR_StationLatitude]
+                    extra_attr["station_longitude"] = st[CWA.ATTR_StationLongitude]
+                    extra_attr["station_air_temperature"] = st[CWA.ATTR_AirTemperature]
+                    extra_attr["station_relative_humidity"] = st[CWA.ATTR_RelativeHumidity]
+                    if CWA.ATTR_ObsTime in st:
+                        extra_attr["station_obs_time"] = st[CWA.ATTR_ObsTime]
+                    if CWA.ATTR_Weather in st:
+                        extra_attr["station_weather"] = st[CWA.ATTR_Weather]
+
+            extra_attr["station_weathers"] = ",".join(weathers)
             condition = _observe_weather_to_ha_condition(weathers, _now)
             if condition == weather.ATTR_CONDITION_SUNNY:
                 if _now.hour >= 18 or _now.hour <= 5:
                     condition = weather.ATTR_CONDITION_CLEAR_NIGHT
             data[weather.ATTR_FORECAST_CONDITION] = condition
-
-            if has_station:
-                st = has_station
-                print(f"refresh observation {self._location}, {_now}, {st[CWA.ATTR_ObsTime]}")
-                extra_attr["station_name"] = st[CWA.ATTR_StationName]
-                extra_attr["station_id"] = st[CWA.ATTR_StationId]
-                extra_attr["station_latitude"] = st[CWA.ATTR_StationLatitude]
-                extra_attr["station_longitude"] = st[CWA.ATTR_StationLongitude]
-                extra_attr["station_weather"] = st[CWA.ATTR_Weather]
-                extra_attr["station_air_temperature"] = st[CWA.ATTR_AirTemperature]
-                extra_attr["station_relative_humidity"] = st[CWA.ATTR_RelativeHumidity]
-                extra_attr["station_obs_time"] = st[CWA.ATTR_ObsTime]
         return data
 
     def get_forcasts(self, kind) -> list[weather.Forecast] | None:

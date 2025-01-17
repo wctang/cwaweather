@@ -9,7 +9,7 @@ MODEL_NAME = "CWA Weather"
 HOME_URL = "https://github.com/wctang/cwaweather"
 
 SELECT_ITEM_TRACK_PREFIX = "tracking: "
-SELECT_ITEM_TRACK_REGEX = r'tracking:\s*(.*)\s*\((zone\..*)\)'
+SELECT_ITEM_TRACK_REGEX = r'tracking:\s*(.*\S)\s*\((zone\..*)\)'
 
 from homeassistant.const import (
     CONF_API_KEY,
