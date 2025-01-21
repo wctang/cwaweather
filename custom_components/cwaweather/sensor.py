@@ -51,3 +51,7 @@ class CWAWeatherSensorEntity(sensor.SensorEntity):
             return self.coordinator._attr_native_temperature_unit
         elif self.type == "humidity":
             return PERCENTAGE
+
+    @property
+    def state_class(self):
+        return sensor.SensorStateClass.MEASUREMENT
