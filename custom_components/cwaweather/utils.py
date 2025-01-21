@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from aiohttp import ClientSession
 import async_timeout
 from datetime import datetime
 import copy
@@ -8,13 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 _LOGGER = logging.getLogger(__name__)
 
 
-async def _url_get(hass, url, is_json = True, verify_ssl = False, timeout = 10):
-    if hass is None:
-        import aiohttp
-        session = aiohttp.ClientSession()
-    else:
-        session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-
+async def _url_get(session, url, is_json = True, verify_ssl = False, timeout = 10):
     async with async_timeout.timeout(timeout):
         async with session.get(url) as response:
             response.raise_for_status()
@@ -31,11 +26,11 @@ def _cache_clean():
         del _data_cache[k]
     return ts
 
-async def _cache_hit_or_fetch(url, ts, hass, is_json, verify_ssl, timeout):
+async def _cache_hit_or_fetch(url, ts, session, is_json, verify_ssl, timeout):
     if url not in _data_cache:
         _data_cache[url] = (ts, None)
         try:
-            data = await _url_get(hass, url, is_json, verify_ssl, timeout)
+            data = await _url_get(session, url, is_json, verify_ssl, timeout)
             _data_cache[url] = (ts, data)
             _LOGGER.debug("%s fetched", url)
             return copy.deepcopy(data)
@@ -49,10 +44,10 @@ async def _cache_hit_or_fetch(url, ts, hass, is_json, verify_ssl, timeout):
 
     return False
 
-async def url_get(hass, url, is_json = True, verify_ssl = False, timeout = 10):
+async def url_get(session, url, is_json = True, verify_ssl = False, timeout = 10):
     ts = _cache_clean()
     while True:
-        if data := await _cache_hit_or_fetch(url, ts, hass, is_json, verify_ssl, timeout):
+        if data := await _cache_hit_or_fetch(url, ts, session, is_json, verify_ssl, timeout):
             return data
 
         _LOGGER.debug("%s wait...", url)

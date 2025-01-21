@@ -12,7 +12,7 @@ from homeassistant.components import zone
 from .const import (
     DOMAIN,
     CONF_API_KEY,
-    CONF_NAME,
+    # CONF_NAME,
     CONF_LOCATION,
     TAIWAN_CITYS_TOWNS,
     SELECT_ITEM_TRACK_PREFIX,
@@ -31,10 +31,11 @@ def _build_schema(hass, options: dict, is_options_flow: bool = False, show_advan
 
     spec = {
         vol.Required(CONF_API_KEY, description={"suggested_value": options.get(CONF_API_KEY, "")}): cv.string,
-        vol.Optional(CONF_NAME, description={"suggested_value": options.get(CONF_NAME, "")}): cv.string,
+        # vol.Optional(CONF_NAME, description={"suggested_value": options.get(CONF_NAME, "")}): cv.string,
         vol.Required(CONF_LOCATION, description={"suggested_value": options.get(CONF_LOCATION, "")}): vol.In(taiwanlocations),
     }
     return vol.Schema(spec)
+
 
 class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
@@ -45,22 +46,27 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            if (name := user_input.get(CONF_NAME)) is None:
-                if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
-                    name = m[1]
+            # if (name := user_input.get(CONF_NAME)) is None:
+            #     if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
+            #         name = m[1]
+            name = user_input.get(CONF_LOCATION)
+            if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
+                name = m[1]
 
             return self.async_create_entry(title=name, data=user_input)
 
         return self.async_show_form(step_id="user", errors=errors, data_schema=_build_schema(self.hass, user_input))
 
 
-
 class CWAWeatherOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input) -> ConfigFlowResult:
         if user_input is not None:
-            if (name := user_input.get(CONF_NAME)) is None:
-                if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
-                    name = m[1]
+            # if (name := user_input.get(CONF_NAME)) is None:
+            #     if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
+            #         name = m[1]
+            name = user_input.get(CONF_LOCATION)
+            if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
+                name = m[1]
 
             self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
             return self.async_create_entry(title=name, data=user_input)

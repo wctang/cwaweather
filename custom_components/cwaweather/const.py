@@ -4,7 +4,7 @@
 
 DOMAIN = "cwaweather"
 ATTRIBUTION = "Weather data from CWA Open Weather Data."
-MANUFACTURER = "wctang"
+MANUFACTURER = "CWA Open Weather Data"
 MODEL_NAME = "CWA Weather"
 HOME_URL = "https://github.com/wctang/cwaweather"
 
@@ -14,7 +14,7 @@ SELECT_ITEM_TRACK_REGEX = r'tracking:\s*(.*\S)\s*\((zone\..*)\)'
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_LOCATION,
-    CONF_NAME
+    # CONF_NAME
 )
 
 TAIWAN_CITYS_TOWNS = {
