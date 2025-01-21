@@ -12,12 +12,12 @@ from homeassistant.components import zone
 from .const import (
     DOMAIN,
     CONF_API_KEY,
-    # CONF_NAME,
     CONF_LOCATION,
     TAIWAN_CITYS_TOWNS,
-    SELECT_ITEM_TRACK_PREFIX,
-    SELECT_ITEM_TRACK_REGEX,
 )
+
+SELECT_ITEM_TRACK_PREFIX = "tracking: "
+SELECT_ITEM_TRACK_REGEX = r'tracking:\s*(?P<name>.*\S)\s*\((?P<zone>zone\..*)\)'
 
 
 def _build_schema(hass, options: dict, is_options_flow: bool = False, show_advanced_options: bool = False) -> vol.Schema:
@@ -46,12 +46,10 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # if (name := user_input.get(CONF_NAME)) is None:
-            #     if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
-            #         name = m[1]
             name = user_input.get(CONF_LOCATION)
             if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
-                name = m[1]
+                name = m['name']
+                user_input[CONF_LOCATION] = m['zone']
 
             return self.async_create_entry(title=name, data=user_input)
 
@@ -61,12 +59,9 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
 class CWAWeatherOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input) -> ConfigFlowResult:
         if user_input is not None:
-            # if (name := user_input.get(CONF_NAME)) is None:
-            #     if (name := user_input.get(CONF_LOCATION)) and (m := re.match(SELECT_ITEM_TRACK_REGEX, name)):
-            #         name = m[1]
             name = user_input.get(CONF_LOCATION)
             if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
-                name = m[1]
+                name = m['name']
 
             self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
             return self.async_create_entry(title=name, data=user_input)
