@@ -1,10 +1,13 @@
 import logging
+from dataclasses import dataclass
+from typing import Any
+from collections.abc import Callable
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components import weather
-from homeassistant.components import sensor
+from homeassistant.components.sensor import SensorEntityDescription, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
+from .coordinator import CWAWeatherCoordinator, CWAWeatherData
 from .const import (
     DOMAIN,
     ATTRIBUTION,
@@ -12,33 +15,44 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+@dataclass(frozen=True, kw_only=True)
+class CWAWeatherSensorEntityDescription(SensorEntityDescription):
+    native_value_fn: Callable[[CWAWeatherData], float | None]
+
+SENSOR_TYPES: tuple[CWAWeatherSensorEntityDescription, ...] = (
+    CWAWeatherSensorEntityDescription(
+        key="temperature",
+        # name="Temperature",
+        native_value_fn=lambda data: data.native_temperature,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=CWAWeatherCoordinator._attr_native_temperature_unit
+    ),
+    CWAWeatherSensorEntityDescription(
+        key="humidity",
+        # name="Humidity",
+        native_value_fn=lambda data: data.humidity,
+        device_class=SensorDeviceClass.HUMIDITY,
+        native_unit_of_measurement=PERCENTAGE
+    ),
+)
+
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
-    async_add_entities([CWAWeatherSensorEntity(coordinator, config_entry, type) for type in ["temperature", "humidity"]], False)
+    async_add_entities([CWAWeatherSensorEntity(coordinator, description) for description in SENSOR_TYPES], False)
 
-class CWAWeatherSensorEntity(sensor.SensorEntity):
+class CWAWeatherSensorEntity(SensorEntity):
     _attr_has_entity_name = True
     _attr_attribution = ATTRIBUTION
-    _attr_state_class = sensor.SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_should_poll = False
 
-    def __init__(self, coordinator, config, type):
+    def __init__(self, coordinator: CWAWeatherCoordinator, description: CWAWeatherSensorEntityDescription):
         self.coordinator = coordinator
-        self.type = type
+        self.entity_description = description
         self._attr_device_info = coordinator.device_info
-        if self.type == "temperature":
-            self._attr_name = "Temperature"
-            self._attr_unique_id = f"{config.entry_id}-temperature"
-            self._attr_device_class = sensor.SensorDeviceClass.TEMPERATURE
-            self._attr_native_unit_of_measurement = coordinator._attr_native_temperature_unit
-        elif self.type == "humidity":
-            self._attr_name = "Humidity"
-            self._attr_unique_id = f"{config.entry_id}-humidity"
-            self._attr_device_class = sensor.SensorDeviceClass.HUMIDITY
-            self._attr_native_unit_of_measurement = PERCENTAGE
+        self._attr_unique_id = f"{coordinator.entry_id}-{description.key}"
+        # self._attr_name = description.name
 
     @property
     def native_value(self):
-        if self.type == "temperature":
-            return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_TEMP)
-        elif self.type == "humidity":
-            return self.coordinator.data.get(weather.ATTR_FORECAST_HUMIDITY)
+        return self.entity_description.native_value_fn(self.coordinator.data)

@@ -60,46 +60,43 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
 
     @property
     def condition(self) -> str | None:
-        if weather.ATTR_FORECAST_CONDITION not in self.coordinator.data:
-            return None
-        self._attr_state = self.coordinator.data[weather.ATTR_FORECAST_CONDITION]
-        return self._attr_state
+        return self.coordinator.data.condition
 
     @property
     def native_temperature(self) -> float | None:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_TEMP)
+        return self.coordinator.data.native_temperature
 
     @property
     def native_apparent_temperature(self) -> float | None:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_APPARENT_TEMP)
+        return self.coordinator.data.native_apparent_temperature
 
     @property
     def native_pressure(self) -> float | None:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_PRESSURE)
+        return self.coordinator.data.native_pressure
 
     @property
     def humidity(self) -> float | None:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_HUMIDITY)
+        return self.coordinator.data.humidity
 
     @property
     def native_dew_point(self) -> float:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_DEW_POINT)
+        return self.coordinator.data.native_dew_point
 
     @property
     def native_wind_speed(self) -> float:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_WIND_SPEED)
+        return self.coordinator.data.native_wind_speed
 
     @property
     def wind_bearing(self) -> float:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_WIND_BEARING)
+        return self.coordinator.data.wind_bearing
 
-    @property
-    def native_wind_gust_speed(self) -> float | None:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED)
+    # @property
+    # def native_wind_gust_speed(self) -> float | None:
+    #     return self.coordinator.data.get(weather.ATTR_FORECAST_NATIVE_WIND_GUST_SPEED)
 
     @property
     def uv_index(self) -> float:
-        return self.coordinator.data.get(weather.ATTR_FORECAST_UV_INDEX)
+        return self.coordinator.data.uv_index
 
     @property
     def state_attributes(self):

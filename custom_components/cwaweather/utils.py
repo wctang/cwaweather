@@ -1,6 +1,5 @@
 import logging
 import asyncio
-from aiohttp import ClientSession
 import async_timeout
 from datetime import datetime
 import copy
@@ -53,3 +52,13 @@ async def url_get(session, url, is_json = True, verify_ssl = False, timeout = 10
         _LOGGER.debug("%s wait...", url)
         await asyncio.sleep(.5)
         # _cache_clean()
+
+
+def parse_element(attrs, v0, r = None, par = ""):
+    r = r if r is not None else {}
+    for k, v in v0.items():
+        if f'{par}{k}' in attrs and v != '-99' and v != -99:
+            r.__setattr__(k, v)
+        elif isinstance(v, dict):
+            parse_element(attrs, v, r, f'{par}{k}/')
+    return r

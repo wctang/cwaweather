@@ -19,8 +19,8 @@ import re
 import math
 import urllib.parse
 import asyncio
-from pprint import pprint, pformat
-from .utils import url_get
+from dataclasses import dataclass
+from .utils import url_get, parse_element
 from .const import TAIWAN_CITYS_TOWNS
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,10 +136,8 @@ class CWA:
             forcasts.append({CWA.ATTR_DataTime: st})
             st += timedelta(hours=1)
 
-
         for item in we:
             itime = item["Time"]
-
             for it in itime:
                 it[CWA.ATTR_DataTime] = datetime.fromisoformat(it[CWA.ATTR_DataTime if CWA.ATTR_DataTime in it else CWA.ATTR_StartTime])
 
@@ -169,52 +167,81 @@ class CWA:
             endTime = haz['validTime']['endTime']
             return info, startTime, endTime
 
+    @dataclass
+    class Station:
+        _distance: float = None
+        StationName: str = None
+        StationId: str = None
+        ObsTime: str = None
+        CountyName: str = None
+        TownName: str = None
+        CountyCode: str = None
+        TownCode: str = None
+        StationLatitude: str = None
+        StationLongitude: str = None
+        StationAltitude: str = None
+        AirPressure: str = None
+        AirTemperature: str = None
+        WindSpeed: str = None
+        WindDirection: str = None
+        RelativeHumidity: str = None
+        Precipitation: str = None
+        PeakGustSpeed: str = None
+        SunshineDuration: str = None
+        UVIndex: str = None
+        VisibilityDescription: str = None
+        Weather: str = None
+        PrecipitationNow: str = None
+        PrecipitationPast10Min: str = None
+        PrecipitationPast1hr: str = None
+        PrecipitationPast3hr: str = None
+        PrecipitationPast6Hr: str = None
+        PrecipitationPast12hr: str = None
+        PrecipitationPast24hr: str = None
+        PrecipitationPast2days: str = None
+        PrecipitationPast3days: str = None
 
-    @staticmethod
-    def parse_element(attrs, v0, par = "", r = None):
-        if r is None:
-            r = {}
-        for k, v in v0.items():
-            if f'{par}{k}' in attrs and v != '-99' and v != -99:
-                r[k] = v
-            elif isinstance(v, dict):
-                CWA.parse_element(attrs, v, f'{par}{k}/', r)
-        return r
+        def __repr__(self):
+            res = []
+            for k, v in self.__dict__.items():
+                if v is not None:
+                    res.append(f"{k}={v}")
+            return f'{{{" ".join(res)}}}'
+
 
     @staticmethod
     def _parse_a000x(st):
         _attrs = [CWA.ATTR_AirPressure, CWA.ATTR_AirTemperature, CWA.ATTR_WindSpeed,
                     CWA.ATTR_WindDirection, CWA.ATTR_RelativeHumidity, CWA.ATTR_Precipitation, 'GustInfo/PeakGustSpeed',
-                    'SunshineDuration', 'UVIndex', 'VisibilityDescription', 'Weather'
-                    ]
+                    'SunshineDuration', 'UVIndex', 'VisibilityDescription', 'Weather']
 
         def parse_rainfallelement(v, r):
             for k in ['Now', 'Past10Min', 'Past1hr', 'Past3hr', 'Past6Hr', 'Past12hr', 'Past24hr', 'Past2days', 'Past3days']:
                 if k in v:
-                    r[f"Precipitation{k}"] = v[k]['Precipitation']
+                    r.__setattr__(f"Precipitation{k}", v[k]['Precipitation'])
 
-        r = {}
+        r = CWA.Station()
         for k in ["StationName", "StationId"]:
-            r[k] = st[k]
-        r["ObsTime"] = st["ObsTime"]['DateTime']
+            r.__setattr__(k, st[k])
+        r.ObsTime = st["ObsTime"]['DateTime']
 
         geo = st["GeoInfo"]
         for k in ["StationAltitude", "CountyName", "TownName", "CountyCode", "TownCode"]:
-            r[k] = geo[k]
+            r.__setattr__(k, geo[k])
 
         coord = next(x for x in geo['Coordinates'] if x['CoordinateName'] == 'WGS84')
         for k in ["StationLatitude", "StationLongitude"]:
-            r[k] = coord[k]
+            r.__setattr__(k, coord[k])
 
         if "WeatherElement" in st:
-            CWA.parse_element(_attrs, st["WeatherElement"], "", r)
+            parse_element(_attrs, st["WeatherElement"], r)
         if "RainfallElement" in st:
             parse_rainfallelement(st["RainfallElement"], r)
         return r
 
 
     @staticmethod
-    async def get_observation_stations(session, api_key):
+    async def get_observation_stations(session, api_key) -> list[Station]:
         sts = []
         for dataid in ["O-A0003-001"]: # ["O-A0001-001", "O-A0002-001", "O-A0003-001"]:
             data = await _api_v1(session, dataid, {"Authorization": api_key})
@@ -231,8 +258,28 @@ class CWA:
             sts.extend(CWA._parse_a000x(st) for st in data["records"]["Station"])
         return sts
 
+    @dataclass
+    class Area:
+        AreaDesc: str = None
+        AreaIntensity: str = None
+        CountyName: str = None
+
+    @dataclass
+    class Earthquake:
+        EarthquakeNo: str = None
+        MagnitudeValue: str = None
+        EpicenterLatitude: str = None
+        EpicenterLongitude: str = None
+        Location: str = None
+        FocalDepth: str = None
+        OriginTime: str = None
+        ReportContent: str = None
+        ReportImageURI: str = None
+        Web: str = None
+        areas: list = None
+
     @staticmethod
-    async def get_earthquake_reports(session, api_key):
+    async def get_earthquake_reports(session, api_key) -> list[Earthquake]:
         _attrs = ["EarthquakeInfo/EarthquakeMagnitude/MagnitudeValue",
                   "EarthquakeInfo/Epicenter/EpicenterLatitude", "EarthquakeInfo/Epicenter/EpicenterLongitude", "EarthquakeInfo/Epicenter/Location",
                   "EarthquakeInfo/FocalDepth", "EarthquakeInfo/OriginTime",
@@ -243,34 +290,34 @@ class CWA:
         res = []
         for dataid in ["E-A0015-001", "E-A0016-001"]:
             data = await _api_v1(session, dataid, {"Authorization": api_key})
-
             for da in data["records"]["Earthquake"]:
-                r = CWA.parse_element(_attrs, da)
-                r['areas'] = [CWA.parse_element(_attrs2, area) for area in da['Intensity']['ShakingArea']]
+                r = parse_element(_attrs, da, CWA.Earthquake())
+                r.areas = [parse_element(_attrs2, area, CWA.Area()) for area in da['Intensity']['ShakingArea']]
                 res.append(r)
-
         return res
 
-    @staticmethod
-    async def get_cyclone_reports(session, api_key):
-        _attrs = ["cwaTyphoonName", "typhoonName", "year"]
+    @dataclass
+    class Typhoon:
+        cwaTyphoonName: str = None
+        typhoonName: str = None
+        year: str = None
 
+    @staticmethod
+    async def get_cyclone_reports(session, api_key) -> list[Typhoon]:
+        _attrs = ["cwaTyphoonName", "typhoonName", "year"]
         res = []
         for dataid in ["W-C0034-005"]:
             data = await _api_v1(session, dataid, {"Authorization": api_key})
 
             for da in data["records"]["tropicalCyclones"]["tropicalCyclone"]:
-                r = CWA.parse_element(_attrs, da)
-            #     r['areas'] = [CWA.parse_element(_attrs2, area) for area in eq['Intensity']['ShakingArea']]
+                r = parse_element(_attrs, da, CWA.Typhoon())
+            #     r['areas'] = [parse_element(_attrs2, area) for area in eq['Intensity']['ShakingArea']]
                 res.append(r)
-
         return res
-
 
 
     @staticmethod
     async def get_observation_now(session, api_key, lat, lon):
-
         sts = await CWA.get_observation_stations(session, api_key)
         sts2 = []
         for st in sts:
@@ -278,7 +325,6 @@ class CWA:
             if dist < 0.15:
                 st["_distance"] = dist
                 sts2.append(st)
-
 
         _attrs = [CWA.ATTR_AirPressure, CWA.ATTR_AirTemperature, CWA.ATTR_RelativeHumidity, CWA.ATTR_Precipitation,
                   CWA.ATTR_WindSpeed, CWA.ATTR_WindDirection, CWA.ATTR_PeakGustSpeed, CWA.ATTR_UVIndex]
@@ -306,9 +352,10 @@ class CWA:
 
 
 async def main():
-    from pprint import pprint
+    from pprint import pprint, pformat
     from dotenv import load_dotenv
     import os
+    import aiohttp
     import operator
 
     load_dotenv()
@@ -319,10 +366,7 @@ async def main():
 
     logging.basicConfig(level=logging.DEBUG)
 
-    import aiohttp
-
     async with aiohttp.ClientSession() as session:
-
         # dataid = "C-B0025-001"
         # dataid = "E-A0015-001"
         # dataid = "E-A0016-001"
@@ -343,65 +387,17 @@ async def main():
         # res = await CWA.get_observation_now(session, API_KEY, POS_LAT, POS_LON)
         # pprint(res)
 
-        res = await CWA.get_earthquake_reports(session, API_KEY)
-        for r in res:
-            pprint(r['ReportContent'])
+        # res = await CWA.get_earthquake_reports(session, API_KEY)
+        # for r in res:
+        #     pprint(r.ReportContent)
 
         # res = await CWA.get_cyclone_reports(session, API_KEY)
         # pprint(res)
 
-
-
-
-        # sts = await CWA.get_observation_stations(session, API_KEY)
+        sts = await CWA.get_observation_stations(session, API_KEY)
+        pprint(sts)
         # for st in sts:
-        #     st["_distance"] = math.sqrt(math.pow(st['StationLatitude'] - POS_LAT, 2) + math.pow(st['StationLongitude'] - POS_LON, 2))
-        # weathers = []
-        # for st in sorted(sts, key=operator.itemgetter("_distance")):
-        #     if st["_distance"] > 0.3:
-        #         break
-        #     if CWA.ATTR_Weather in st:
-        #         weathers.append(st[CWA.ATTR_Weather])
-        #     print(f"{st["_distance"]} {st[CWA.ATTR_ObsTime]} {st["CountyName"]} {st["TownName"]} {st.get(CWA.ATTR_AirTemperature)} {st.get(CWA.ATTR_RelativeHumidity)} {st.get(CWA.ATTR_AirPressure)} {st.get(CWA.ATTR_Weather,""):4} {st[CWA.ATTR_StationName]}")
-
-        # CWA_WEATHER_CONDITION_TO_HASS = {
-        #     "有霾": "FOG",
-        #     "有靄": "FOG",
-        #     "有霧": "FOG",
-
-        #     "有雷": "LIGHTNING",
-        #     "有閃電": "LIGHTNING",
-        #     "有雷聲": "LIGHTNING",
-
-        #     "有雨": "RAINY",
-        #     "有陣雨": "RAINY",
-
-        #     "有雨雪": "SNOWY_RAINY",
-        #     "陣雨雪": "SNOWY_RAINY",
-
-        #     "有大雪": "SNOWY",
-        #     "有雪珠": "SNOWY",
-        #     "有冰珠": "SNOWY",
-        #     "有雷雪": "SNOWY",
-
-        #     "有雹": "HAIL",
-        #     "有雷雹": "HAIL",
-        #     "大雷雹": "HAIL",
-
-        #     "大雷雨": "LIGHTNING_RAINY",
-        #     "有雷雨": "LIGHTNING_RAINY",
-
-        #     "晴": "SUNNY",
-        #     "多雲": "PARTLYCLOUDY",
-        #     "陰": "CLOUDY",
-        # }
-        # from collections import Counter
-        # wss = list(map(lambda x: CWA_WEATHER_CONDITION_TO_HASS[x if len(x) <= 2 else x.replace("晴","").replace("多雲","").replace("陰","")], weathers))
-        # print(weathers)
-        # print(wss)
-        # print(Counter(wss).most_common(1)[0][0])
-        # _LOGGER.info(f"{weathers}")
-
+        #     print(f"{st.ObsTime} {st.CountyName} {st.TownName} {st.AirTemperature} {st.RelativeHumidity} {st.AirPressure} {st.Weather} {st.StationName}")
 
         # data = await CWA.get_rain_stations(session, API_KEY)
         # pprint(data)
