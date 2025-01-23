@@ -17,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
-    async_add_entities([CWAWeatherEntity(coordinator, config_entry)], False)
+    async_add_entities([CWAWeatherEntity(coordinator)], False)
 
 
 class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordinator]):
@@ -31,12 +31,12 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         weather.WeatherEntityFeature.FORECAST_TWICE_DAILY
     )
 
-    def __init__(self, coordinator, config_entry: ConfigEntry):
+    def __init__(self, coordinator: CWAWeatherCoordinator):
         super().__init__(coordinator)
         self._unsubscribe_listener = None
         self._attr_native_temperature_unit = coordinator._attr_native_temperature_unit
         self._attr_native_wind_speed_unit = coordinator._attr_native_wind_speed_unit
-        self._attr_unique_id = config_entry.entry_id
+        self._attr_unique_id = coordinator.config_entry.entry_id
         self._attr_device_info = coordinator.device_info
 
     async def async_added_to_hass(self):

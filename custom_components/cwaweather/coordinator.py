@@ -180,10 +180,11 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry):
         name = config_entry.title
+        super().__init__(hass, _LOGGER, config_entry=config_entry, name=name, update_interval=timedelta(minutes=10)) # check every 10 minutes
+
         api_key = config_entry.data.get(CONF_API_KEY)
         location = config_entry.data.get(CONF_LOCATION)
-
-        _LOGGER.info("'%s' '%s' '%s'", api_key, name, location)
+        _LOGGER.info("'%s' '%s' '%s'", name, api_key, location)
         if location.startswith("zone."):
             if (zoneentity := hass.states.get(location)) is None:
                 _LOGGER.error("Cant find tracking zone entity: %s", location)
@@ -199,10 +200,7 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
             # self.locations.append(self._location)
             # print(f"add {self._location}")
 
-        super().__init__(hass, _LOGGER, config_entry=config_entry, name=name, update_interval=timedelta(minutes=10)) # check every 10 minutes
-
         # self.data = {}
-        self.entry_id = config_entry.entry_id
         self.extra_attributes = {}
         self.device_info = DeviceInfo(
             name=name,

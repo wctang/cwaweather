@@ -1,8 +1,9 @@
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.typing import StateType
-from homeassistant.components import air_quality
+from homeassistant.components.air_quality import AirQualityEntity
 
 from .const import (
     DOMAIN,
@@ -13,41 +14,51 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     async_add_entities([MOENVAQIAirQualityEntity(coordinator)], False)
 
-class MOENVAQIAirQualityEntity(air_quality.AirQualityEntity):
+class MOENVAQIAirQualityEntity(CoordinatorEntity, AirQualityEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_attribution = ATTRIBUTION
-    _attr_should_poll = False
 
     def __init__(self, coordinator):
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         self._attr_device_info = coordinator.device_info
-        self._attr_unique_id = f"{coordinator.entry_id}-aqi"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}-aqi"
+        self._aqi_data = self.coordinator.data.aqi_station
+
+    def _handle_coordinator_update(self) -> None:
+        if self._aqi_data != self.coordinator.data.aqi_station:
+            self._aqi_data = self.coordinator.data.aqi_station
+            print(f"Updating {self.coordinator.name} aqi data")
+            self.async_write_ha_state()
+
+    @property
+    def air_quality_index(self) -> StateType:
+        return self._aqi_data.aqi
+
+    @property
+    def particulate_matter_2_5(self) -> StateType:
+        return self._aqi_data.pm2_5
+
+    @property
+    def particulate_matter_10(self) -> StateType:
+        return self._aqi_data.pm10
+
+    @property
+    def ozone(self) -> StateType:
+        return self._aqi_data.o3
+
+    @property
+    def carbon_monoxide(self) -> StateType:
+        return self._aqi_data.co
+
+    @property
+    def sulphur_dioxide(self) -> StateType:
+        return self._aqi_data.so2
 
     @property
     def state(self) -> StateType:
         return self.air_quality_index
 
     @property
-    def air_quality_index(self) -> StateType:
-        return self.coordinator.data.aqi_station.aqi
-
-    @property
-    def particulate_matter_2_5(self) -> StateType:
-        return self.coordinator.data.aqi_station.pm2_5
-
-    @property
-    def particulate_matter_10(self) -> StateType:
-        return self.coordinator.data.aqi_station.pm10
-
-    @property
-    def ozone(self) -> StateType:
-        return self.coordinator.data.aqi_station.o3
-
-    @property
-    def carbon_monoxide(self) -> StateType:
-        return self.coordinator.data.aqi_station.co
-
-    @property
-    def sulphur_dioxide(self) -> StateType:
-        return self.coordinator.data.aqi_station.so2
+    def unit_of_measurement(self) -> str:
+        return "AQI"

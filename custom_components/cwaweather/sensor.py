@@ -1,10 +1,12 @@
 import logging
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any
 from collections.abc import Callable
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.sensor import SensorEntityDescription, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import PERCENTAGE
 from .coordinator import CWAWeatherCoordinator, CWAWeatherData
@@ -40,19 +42,22 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     async_add_entities([CWAWeatherSensorEntity(coordinator, description) for description in SENSOR_TYPES], False)
 
-class CWAWeatherSensorEntity(SensorEntity):
+
+class CWAWeatherSensorEntity(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_attribution = ATTRIBUTION
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_should_poll = False
 
     def __init__(self, coordinator: CWAWeatherCoordinator, description: CWAWeatherSensorEntityDescription):
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         self.entity_description = description
-        self._attr_device_info = coordinator.device_info
-        self._attr_unique_id = f"{coordinator.entry_id}-{description.key}"
         # self._attr_name = description.name
+        self._attr_device_info = coordinator.device_info
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}-{description.key}"
+        self._attr_native_value = self.entity_description.native_value_fn(self.coordinator.data)
 
-    @property
-    def native_value(self):
-        return self.entity_description.native_value_fn(self.coordinator.data)
+    def _handle_coordinator_update(self) -> None:
+        if (val := self.entity_description.native_value_fn(self.coordinator.data)) != self._attr_native_value:
+            print(f"Updating sensor {self.coordinator.name} {self.entity_description.key} from {self._attr_native_value} to {val}")
+            self._attr_native_value = val
+            self.async_write_ha_state()
