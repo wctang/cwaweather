@@ -71,6 +71,7 @@ async def async_validate_input(hass, data, errors):
         if location is None:
             errors[CONF_LOCATION] = "Cant find location infomation in Taiwan"
             return
+        data[CONF_LOCATION] = zone
     return name
 
 
