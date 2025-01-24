@@ -3,11 +3,36 @@
   "config": {
     "step": {
       "user": {
-        "title": "Test Title",
+        "title": "ABC Test Title",
         "description": "Test Description",
         "data": {
           "api_key": "Test API Key"
         }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "[%key:component::sensor::entity_component::temperature::name%]"
+      },
+      "apparent_temperature": {
+        "name": "Apparent Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "pressure": {
+        "name": "Pressure"
+      },
+      "dew_point": {
+        "name": "Dew Point"
+      },
+      "uv_index": {
+        "name": "UV Index"
+      },
+      "wind_speed": {
+        "name": "Wind Speed"
       }
     }
   }

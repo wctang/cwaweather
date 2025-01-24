@@ -35,6 +35,7 @@ async def _cache_hit_or_fetch(url, ts, session, is_json, verify_ssl, timeout):
             return copy.deepcopy(data)
         except:
             del _data_cache[url]
+            raise
 
     _, data = _data_cache[url]
     if data is not None:

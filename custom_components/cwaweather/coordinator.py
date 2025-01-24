@@ -11,6 +11,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.components import weather
+from homeassistant.const import (
+    UV_INDEX
+)
 from .cwa import CWA
 from .moenv import MOENV, AQIStation
 from .datagovtw import DataGovTw
@@ -20,6 +23,7 @@ from .const import (
     MODEL_NAME,
     HOME_URL,
     CONF_API_KEY,
+    CONF_API_KEY_MOENV,
     CONF_LOCATION,
 )
 
@@ -103,6 +107,7 @@ def _forecast_weather_to_ha_condition(fc):
     _LOGGER.debug(f"{fc[CWA.ATTR_WeatherCode]} = {fc[CWA.ATTR_Weather]}")
     return fc[CWA.ATTR_Weather]
 
+
 def _observe_weather_to_ha_condition(weathers, _now):
     wss = []
     for x in weathers:
@@ -169,9 +174,12 @@ class CWAWeatherData:
     aqi_time: datetime = None
     aqi_station: AQIStation = None
 
+
 class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
-    _attr_native_temperature_unit = weather.UnitOfTemperature.CELSIUS
-    _attr_native_wind_speed_unit = weather.UnitOfSpeed.METERS_PER_SECOND
+    native_temperature_unit = weather.UnitOfTemperature.CELSIUS
+    native_wind_speed_unit = weather.UnitOfSpeed.METERS_PER_SECOND
+    native_pressure_unit = weather.UnitOfPressure.HPA
+    uv_index_unit = UV_INDEX
 
     # locations = []
     ob_fetching = False
@@ -182,9 +190,11 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
         name = config_entry.title
         super().__init__(hass, _LOGGER, config_entry=config_entry, name=name, update_interval=timedelta(minutes=10)) # check every 10 minutes
 
-        api_key = config_entry.data.get(CONF_API_KEY)
+        self._api_key = config_entry.data.get(CONF_API_KEY)
+        self._api_key_moenv = config_entry.data.get(CONF_API_KEY_MOENV)
         location = config_entry.data.get(CONF_LOCATION)
-        _LOGGER.info("'%s' '%s' '%s'", name, api_key, location)
+        _LOGGER.info("'%s' '%s' '%s' '%s'", name, self._api_key, self._api_key_moenv, location)
+
         if location.startswith("zone."):
             if (zoneentity := hass.states.get(location)) is None:
                 _LOGGER.error("Cant find tracking zone entity: %s", location)
@@ -210,7 +220,6 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
             model=MODEL_NAME,
             configuration_url=HOME_URL,
         )
-        self._api_key = api_key
         self._force_refresh = False
         self.extra_attributes["location"] = self._location
 
@@ -254,8 +263,6 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
             self.extra_attributes["longitude"] = self._longitude
             self.extra_attributes["location"] = self._location
             self._force_refresh = True
-
-        # print(self.locations)
 
         # refresh forecasts
         # 發布時機：每日 05:30、11:30、17:30、23:30,  更新頻率：每 6 小時
@@ -357,8 +364,7 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
             data.condition = condition
 
             if data.aqi_station is None or _now > data.aqi_time + timedelta(hours=1.1):
-                MOENV_API = '9b65c332-2592-480c-8720-91250ca7b8ae'
-                sts: list[AQIStation] = await MOENV.get_aqi_hourly(session, MOENV_API)
+                sts: list[AQIStation] = await MOENV.get_aqi_hourly(session, self._api_key_moenv)
                 for st in sts:
                     st._distance = math.sqrt(math.pow(float(st.latitude) - self._latitude, 2) + math.pow(float(st.longitude) - self._longitude, 2))
 
@@ -374,8 +380,8 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
                         extra_attr["station_aqi_sitename"] = st.sitename
                         extra_attr["station_aqi_publishtime"] = st.publishtime
                         break
-
         return data
+
 
     def get_forcasts(self, kind) -> list[weather.Forecast] | None:
         _now = datetime.now().astimezone()

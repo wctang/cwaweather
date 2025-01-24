@@ -3,6 +3,7 @@
 import logging
 import urllib.parse
 import asyncio
+from aiohttp import ClientResponseError
 from dataclasses import dataclass
 from .utils import url_get
 
@@ -39,6 +40,17 @@ class AQIStation:
     _distance: float = None
 
 class MOENV:
+    async def check_api_key(session, api_key):
+        dataid = "AQX_P_432"
+        try:
+            data = await _api_v2(session, dataid, {"api_key": api_key})
+            # print(data)
+            # if not data.startswith("{"):
+            #     return False
+            return True
+        except:
+            return False
+
     @staticmethod
     async def get_aqi_hourly(session, api_key) -> list[AQIStation]:
         dataid = "AQX_P_432"
@@ -82,10 +94,14 @@ async def main():
         # records = data["records"]
         # pprint(records)
 
-        res: list[AQIStation] = await MOENV.get_aqi_hourly(session, API_KEY)
-        for re in res:
-            if re.sitename == "鳳山":
-                print(re)
+        print(await MOENV.check_api_key(session, API_KEY))
+        print(await MOENV.check_api_key(session, "invalidkey"))
+
+
+        # res: list[AQIStation] = await MOENV.get_aqi_hourly(session, API_KEY)
+        # for re in res:
+        #     if re.sitename == "鳳山":
+        #         print(re)
 
 
 if __name__ == '__main__':

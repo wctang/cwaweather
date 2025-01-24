@@ -20,6 +20,7 @@ import math
 import urllib.parse
 import asyncio
 from dataclasses import dataclass
+from aiohttp import ClientResponseError
 from .utils import url_get, parse_element
 from .const import TAIWAN_CITYS_TOWNS
 
@@ -166,6 +167,20 @@ class CWA:
             startTime = haz['validTime']['startTime']
             endTime = haz['validTime']['endTime']
             return info, startTime, endTime
+
+    async def check_api_key(session, api_key):
+        dataid = "O-A0003-001"
+        try:
+            data = await _api_v1(session, dataid, {"Authorization": api_key})
+            return True
+        except ClientResponseError as err:
+            if err.status == 401:
+                return False
+            else:
+                raise
+        except:
+            raise
+
 
     @dataclass
     class Station:
@@ -376,13 +391,18 @@ async def main():
         # data = await _api_v1(session, dataid, {"Authorization": API_KEY})
         # pprint(data)
 
+        print(await CWA.check_api_key(session, API_KEY))
+        print(await CWA.check_api_key(session, "invalidkey"))
+
         # forcasts = await CWA.get_forcast_twice_daily(session, API_KEY, location)
         # pprint(forcasts['Forecasts'][0])
 
         # forcasts = await CWA.get_forcast_hourly(session, API_KEY, location)
         # pprint(forcasts['Forecasts'][0])
 
-        # await CWA.get_weather_warning(API_KEY, location)
+        # location = "高雄市-鳳山區"
+        # res = await CWA.get_weather_warning(session, API_KEY, location)
+        # pprint(res)
 
         # res = await CWA.get_observation_now(session, API_KEY, POS_LAT, POS_LON)
         # pprint(res)
@@ -394,8 +414,9 @@ async def main():
         # res = await CWA.get_cyclone_reports(session, API_KEY)
         # pprint(res)
 
-        sts = await CWA.get_observation_stations(session, API_KEY)
-        pprint(sts)
+        # sts = await CWA.get_observation_stations(session, API_KEY)
+        # pprint(sts)
+
         # for st in sts:
         #     print(f"{st.ObsTime} {st.CountyName} {st.TownName} {st.AirTemperature} {st.RelativeHumidity} {st.AirPressure} {st.Weather} {st.StationName}")
 

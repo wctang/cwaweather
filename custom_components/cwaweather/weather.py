@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .coordinator import CWAWeatherCoordinator
 from .const import (
     DOMAIN,
-    ATTRIBUTION,
+    ATTRIBUTION_CWA,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordinator]):
     _attr_has_entity_name = True
     _attr_name = None
-    _attr_attribution = ATTRIBUTION
+    _attr_attribution = ATTRIBUTION_CWA
 
     _attr_supported_features = (
         weather.WeatherEntityFeature.FORECAST_HOURLY |
@@ -34,8 +34,8 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
     def __init__(self, coordinator: CWAWeatherCoordinator):
         super().__init__(coordinator)
         self._unsubscribe_listener = None
-        self._attr_native_temperature_unit = coordinator._attr_native_temperature_unit
-        self._attr_native_wind_speed_unit = coordinator._attr_native_wind_speed_unit
+        self._attr_native_temperature_unit = coordinator.native_temperature_unit
+        self._attr_native_wind_speed_unit = coordinator.native_wind_speed_unit
         self._attr_unique_id = coordinator.config_entry.entry_id
         self._attr_device_info = coordinator.device_info
 
@@ -103,4 +103,3 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         attr = super().state_attributes
         attr.update(self.coordinator.extra_attributes)
         return attr
-
