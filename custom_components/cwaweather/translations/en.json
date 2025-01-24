@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "CWA Weather",
+        "description": "To generate CWA API key, please reference: https://opendata.cwa.gov.tw/devManual/insrtuction. To generate MOENV API key, please reference: https://data.moenv.gov.tw/paradigm",
+        "data": {
+          "api_key": "CWA API Key",
+          "api_key_moenv": "MOENV API Key",
+          "location": "Location"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Temperature"
+      },
+      "apparent_temperature": {
+        "name": "Apparent Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "pressure": {
+        "name": "Pressure"
+      },
+      "dew_point": {
+        "name": "Dew Point"
+      },
+      "uv_index": {
+        "name": "UV Index"
+      },
+      "wind_speed": {
+        "name": "Wind Speed"
+      },
+      "aqi": {
+        "name": "AQI"
+      },
+      "pm2_5": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "o3": {
+        "name": "Ozone"
+      },
+      "co": {
+        "name": "CO"
+      },
+      "no2": {
+        "name": "NO2"
+      },
+      "no": {
+        "name": "NO"
+      },
+      "so2": {
+        "name": "SO2"
+      }
+    }
+  }
+}

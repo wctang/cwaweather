@@ -1,8 +1,3 @@
 {
-  "name": "CWA Weather",
-  "render_readme": true,
-  "domain": "cwaweather",
-  "documentation": "https://github.com/wctang/cwaweather",
-  "issue_tracker": "https://github.com/wctang/cwaweather/issues",
-  "homeassistant": "2021.4.0"
+  "name": "CWA Weather"
 }

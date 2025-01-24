@@ -3,6 +3,7 @@
   "name": "CWA Weather",
   "version": "0.2",
   "documentation": "https://github.com/wctang/cwaweather",
+  "issue_tracker": "https://github.com/wctang/cwaweather/issues",
   "dependencies": [],
   "codeowners": ["@wctang"],
   "requirements": [],
