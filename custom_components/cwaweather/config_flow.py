@@ -11,6 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import zone
 from .cwa import CWA
 from .moenv import MOENV
+from .datagovtw import DataGovTw
 from .const import (
     DOMAIN,
     CONF_API_KEY,
@@ -47,6 +48,31 @@ def _build_schema(hass, options: dict, is_options_flow: bool = False, show_advan
     }
     return vol.Schema(spec)
 
+async def async_validate_input(hass, data, errors):
+    session = async_get_clientsession(hass, verify_ssl=False)
+    if not await CWA.check_api_key(session, data[CONF_API_KEY]):
+        errors[CONF_API_KEY] = "invalid_api_key"
+    if not await MOENV.check_api_key(session, data[CONF_API_KEY_MOENV]):
+        errors[CONF_API_KEY_MOENV] = "invalid_api_key"
+
+    name = data[CONF_LOCATION]
+    if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
+        name = m['name']
+        zone = m['zone']
+
+        if (zoneentity := hass.states.get(zone)) is None:
+            errors[CONF_LOCATION] = "Cant find tracking zone entity"
+            return
+
+        latitude = zoneentity.attributes.get("latitude")
+        longitude = zoneentity.attributes.get("longitude")
+
+        location = await DataGovTw.town_village_point_query(session, latitude, longitude)
+        if location is None:
+            errors[CONF_LOCATION] = "Cant find location infomation in Taiwan"
+            return
+    return name
+
 
 class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
@@ -57,19 +83,9 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            session = async_get_clientsession(self.hass, verify_ssl=False)
-            api_key = user_input.get(CONF_API_KEY)
-            if not await CWA.check_api_key(session, api_key):
-                errors[CONF_API_KEY] = "invalid_api_key"
-            api_key_moenv = user_input.get(CONF_API_KEY_MOENV)
-            if not await MOENV.check_api_key(session, api_key_moenv):
-                errors[CONF_API_KEY_MOENV] = "invalid_api_key"
-
-            name = user_input.get(CONF_LOCATION)
-            if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
-                name = m['name']
-                user_input[CONF_LOCATION] = m['zone']
-
+            print(user_input, errors)
+            name = await async_validate_input(self.hass, user_input, errors)
+            print(user_input, errors)
             if not errors:
                 return self.async_create_entry(title=name, data=user_input)
 
@@ -78,13 +94,13 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
 
 class CWAWeatherOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input) -> ConfigFlowResult:
-        if user_input is not None:
-            name = user_input.get(CONF_LOCATION)
-            if m := re.match(SELECT_ITEM_TRACK_REGEX, name):
-                name = m['name']
+        errors = {}
 
-            self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
-            return self.async_create_entry(title=name, data=user_input)
+        if user_input is not None:
+            name = await async_validate_input(self.hass, user_input, errors)
+            if not errors:
+                self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
+                return self.async_create_entry(title=name, data=user_input)
 
         else:
             user_input = {
@@ -95,4 +111,4 @@ class CWAWeatherOptionsFlow(OptionsFlow):
             if (loc := user_input.get(CONF_LOCATION)).startswith("zone."):
                 user_input[CONF_LOCATION] = zone_info(self.hass, loc)
 
-        return self.async_show_form(step_id="init", data_schema=_build_schema(self.hass, user_input, is_options_flow=True))
+        return self.async_show_form(step_id="init", errors=errors, data_schema=_build_schema(self.hass, user_input, is_options_flow=True))
