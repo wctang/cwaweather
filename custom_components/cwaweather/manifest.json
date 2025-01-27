@@ -1,12 +1,12 @@
 {
   "domain": "cwaweather",
   "name": "CWA Weather",
-  "version": "0.2",
-  "documentation": "https://github.com/wctang/cwaweather",
-  "issue_tracker": "https://github.com/wctang/cwaweather/issues",
-  "dependencies": [],
   "codeowners": ["@wctang"],
-  "requirements": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/wctang/cwaweather",
   "iot_class": "cloud_polling",
-  "config_flow": true
+  "issue_tracker": "https://github.com/wctang/cwaweather/issues",
+  "requirements": [],
+  "version": "0.2"
 }
