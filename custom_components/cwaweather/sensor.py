@@ -180,7 +180,7 @@ class MOENVSensorEntity(CoordinatorEntity, SensorEntity):
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = config_entry.runtime_data
     entities = [CWAWeatherSensorEntity(coordinator, description) for description in SENSOR_TYPES]
     entities.extend(MOENVSensorEntity(coordinator, description) for description in MOENV_SENSOR_TYPES)
     async_add_entities(entities, False)

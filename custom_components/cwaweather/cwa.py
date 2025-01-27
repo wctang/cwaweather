@@ -14,6 +14,7 @@
 
 
 import logging
+from pprint import pprint, pformat
 from datetime import datetime, timedelta
 import re
 import math
@@ -155,14 +156,27 @@ class CWA:
         }
 
 
-    async def get_weather_warning(session, api_key, location):
-        locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
+
+    async def get_weather_warning(session, api_key):
+        dataid = f"W-C0033-002"
+        data = await _api_v1(session, dataid, {"Authorization": api_key})
+
+        for record in data["records"]["record"]:
+            pprint(record['contents']['content']['contentText'])
+            pprint(record['datasetInfo']['datasetDescription'])
+            print("=======")
+
+
+
+    async def get_weather_warning_by_location(session, api_key, location):
         dataid = f"W-C0033-001"
+        locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
         data = await _api_v1(session, dataid, {"Authorization": api_key, "locationName": locs[0]})
 
         locs = data["records"]["location"][0]
         hazards = locs["hazardConditions"]['hazards']
         for haz in hazards:
+            print(haz)
             info = f"{haz['info']['phenomena']} {haz['info']['significance']}"
             startTime = haz['validTime']['startTime']
             endTime = haz['validTime']['endTime']
@@ -391,8 +405,8 @@ async def main():
         # data = await _api_v1(session, dataid, {"Authorization": API_KEY})
         # pprint(data)
 
-        print(await CWA.check_api_key(session, API_KEY))
-        print(await CWA.check_api_key(session, "invalidkey"))
+        # print(await CWA.check_api_key(session, API_KEY))
+        # print(await CWA.check_api_key(session, "invalidkey"))
 
         # forcasts = await CWA.get_forcast_twice_daily(session, API_KEY, location)
         # pprint(forcasts['Forecasts'][0])
@@ -401,8 +415,8 @@ async def main():
         # pprint(forcasts['Forecasts'][0])
 
         # location = "高雄市-鳳山區"
-        # res = await CWA.get_weather_warning(session, API_KEY, location)
-        # pprint(res)
+        res = await CWA.get_weather_warning(session, API_KEY)
+        pprint(res)
 
         # res = await CWA.get_observation_now(session, API_KEY, POS_LAT, POS_LON)
         # pprint(res)

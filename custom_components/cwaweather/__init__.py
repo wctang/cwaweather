@@ -3,6 +3,7 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import config_validation as cv
 from .coordinator import CWAWeatherCoordinator
 from .const import (
     DOMAIN,
@@ -10,15 +11,12 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    hass.data.setdefault(DOMAIN, {})
-    return True
-
 PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.AIR_QUALITY]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     coordinator = CWAWeatherCoordinator(hass, config_entry)
-    hass.data[DOMAIN][config_entry.entry_id] = coordinator
+    config_entry.runtime_data = coordinator
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
