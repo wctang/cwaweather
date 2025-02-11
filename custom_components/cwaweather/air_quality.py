@@ -5,6 +5,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.typing import StateType
 from homeassistant.components.air_quality import AirQualityEntity
+from homeassistant.components.sensor import SensorDeviceClass, EntityCategory
 
 from .const import (
     DOMAIN,
@@ -17,10 +18,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     coordinator = config_entry.runtime_data
     async_add_entities([MOENVAQIAirQualityEntity(coordinator)], False)
 
+
 class MOENVAQIAirQualityEntity(CoordinatorEntity, AirQualityEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_attribution = ATTRIBUTION_MOENV
+    _attr_device_class = SensorDeviceClass.ENUM
+    # options=["良好", "普通", "對敏感族群不健康", "對所有族群不健康", "非常不健康", "危害"],
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
@@ -65,3 +70,16 @@ class MOENVAQIAirQualityEntity(CoordinatorEntity, AirQualityEntity):
     @property
     def unit_of_measurement(self) -> str:
         return None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return other details about the sensor state."""
+        return {
+            "siteid": self._aqi_data.siteid,
+            "sitename": self._aqi_data.sitename,
+            "latitude": self._aqi_data.latitude,
+            "longitude": self._aqi_data.longitude,
+            "county": self._aqi_data.county,
+            "publishtime": self._aqi_data.publishtime,
+            "pollutant": self._aqi_data.pollutant,
+        }
