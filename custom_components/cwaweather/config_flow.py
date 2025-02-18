@@ -137,14 +137,21 @@ class CWAWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class CWAWeatherOptionsFlow(OptionsFlow):
+    def __init__(self) -> None:
+        self.data = {}
+
     async def async_step_init(self, user_input) -> ConfigFlowResult:
         errors = {}
 
         if user_input is not None:
             name = await async_validate_input(self.hass, user_input, errors)
             if not errors:
-                self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
-                return self.async_create_entry(title=name, data=user_input)
+                if name == SELECT_ITEM_SELECT_ON_MAP:
+                    self.data = user_input
+                    return await self.async_step_map(user_input)
+                else:
+                    self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=user_input)
+                    return self.async_create_entry(title=name, data=user_input)
 
         else:
             user_input = {
@@ -152,7 +159,51 @@ class CWAWeatherOptionsFlow(OptionsFlow):
                 CONF_API_KEY_MOENV: self.config_entry.data.get(CONF_API_KEY_MOENV, ""),
                 CONF_LOCATION: self.config_entry.data.get(CONF_LOCATION, ""),
             }
-            if (loc := user_input.get(CONF_LOCATION)).startswith("zone."):
+            if (loc := user_input.get(CONF_LOCATION)) is None:
+                user_input[CONF_LOCATION] = SELECT_ITEM_SELECT_ON_MAP
+            elif loc.startswith("zone."):
                 user_input[CONF_LOCATION] = zone_info(self.hass, loc)
 
-        return self.async_show_form(step_id="init", errors=errors, data_schema=_build_schema(self.hass, is_options_flow=True))
+        return self.async_show_form(step_id="init", errors=errors, data_schema=self.add_suggested_values_to_schema(_build_schema(self.hass, is_options_flow=True), user_input))
+
+
+    async def async_step_map(self, user_input) -> ConfigFlowResult:
+        errors = {}
+
+        if user_input[CONF_LOCATION] == SELECT_ITEM_SELECT_ON_MAP:
+            if CONF_LATITUDE in self.config_entry.data and CONF_LONGITUDE in self.config_entry.data:
+                lat = self.config_entry.data[CONF_LATITUDE]
+                lon = self.config_entry.data[CONF_LONGITUDE]
+            else:
+                lat = self.hass.config.latitude
+                lon = self.hass.config.longitude
+
+            return self.async_show_form(
+                step_id="map",
+                data_schema=self.add_suggested_values_to_schema(
+                    vol.Schema({vol.Required(CONF_LOCATION,): LocationSelector()}),
+                    {CONF_LOCATION: {
+                        CONF_LATITUDE: lat,
+                        CONF_LONGITUDE: lon,
+                    }},
+                ),
+                errors=errors,
+            )
+
+        else:
+            session = async_get_clientsession(self.hass, verify_ssl=False)
+            try:
+                res = await DataGovTw.town_village_point_query(session, user_input[CONF_LOCATION][CONF_LATITUDE], user_input[CONF_LOCATION][CONF_LONGITUDE])
+                if res is None:
+                    errors[CONF_LOCATION] = "Cant find location infomation in Taiwan"
+                    return
+                name = f"{res[0]}-{res[1]}"
+                self.data[CONF_LATITUDE] = user_input[CONF_LOCATION][CONF_LATITUDE]
+                self.data[CONF_LONGITUDE] = user_input[CONF_LOCATION][CONF_LONGITUDE]
+                self.data[CONF_LOCATION] = None
+            except Exception:
+                errors[CONF_LOCATION] = "Can't find location in Taiwan"
+            else:
+                self.hass.config_entries.async_update_entry(self.config_entry, title=name, data=self.data)
+                return self.async_create_entry(title=name, data=self.data)
+
