@@ -9,6 +9,12 @@
           "api_key_moenv": "MOENV API Key",
           "location": "Location"
         }
+      },
+      "map": {
+        "data": {
+            "location": "Location"
+        },
+        "description": "Select a location to get the closest measuring station."
       }
     }
   },

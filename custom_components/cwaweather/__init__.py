@@ -1,5 +1,5 @@
 """CWA Weather Integration for Home Assistant."""
-import logging
+# import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 from homeassistant.config_entries import ConfigEntry
@@ -9,7 +9,7 @@ from .const import (
     DOMAIN,
 )
 
-_LOGGER = logging.getLogger(__name__)
+# _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.AIR_QUALITY]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

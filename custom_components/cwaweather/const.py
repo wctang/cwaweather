@@ -12,6 +12,8 @@ HOME_URL = "https://github.com/wctang/cwaweather"
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_LOCATION,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
 )
 CONF_API_KEY_MOENV = "api_key_moenv"
 

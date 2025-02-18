@@ -71,16 +71,13 @@ class CWA:
 
 
     @staticmethod
-    async def get_forcast_twice_daily(session, api_key, location):
-        locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
-        if len(locs) == 1:
+    async def get_forcast_twice_daily(session, api_key, city, town):
+        if town is None:
             dataid = f"F-D0047-091"
-            lname = locs[0]
-        elif len(locs) == 2:
-            dataid = f"F-D0047-{TAIWAN_CITYS_TOWNS[locs[0]][0] + 2:03}"
-            lname = locs[1]
+            lname = city
         else:
-            return None
+            dataid = f"F-D0047-{TAIWAN_CITYS_TOWNS[city][0] + 2:03}"
+            lname = town
 
         data = await _api_v1(session, dataid, {"Authorization": api_key, "LocationName": lname})
         # _LOGGER.debug(pformat(data))
@@ -110,16 +107,13 @@ class CWA:
 
 
     @staticmethod
-    async def get_forcast_hourly(session, api_key, location):
-        locs = [x for x in re.split(r"[\s\,\.\\\/\-\_\~\|]+", location) if len(x) > 0]
-        if len(locs) == 1:
+    async def get_forcast_hourly(session, api_key, city, town):
+        if town is None:
             dataid = f"F-D0047-089"
-            lname = locs[0]
-        elif len(locs) == 2:
-            dataid = f"F-D0047-{TAIWAN_CITYS_TOWNS[locs[0]][0]:03}"
-            lname = locs[1]
+            lname = city
         else:
-            return None
+            dataid = f"F-D0047-{TAIWAN_CITYS_TOWNS[city][0]:03}"
+            lname = town
 
         data = await _api_v1(session, dataid, {"Authorization": api_key, "LocationName": lname})
         # _LOGGER.debug(pformat(data))

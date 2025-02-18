@@ -14,5 +14,5 @@ class DataGovTw:
         if city_name is None or town_name is None:
             return None
 
-        return f"{city_name.text}-{town_name.text}"
+        return city_name.text, town_name.text
 

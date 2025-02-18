@@ -29,8 +29,8 @@ class MOENVAQIAirQualityEntity(CoordinatorEntity, AirQualityEntity):
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
-        self._attr_device_info = coordinator.device_info
-        self._attr_unique_id = coordinator.config_entry.entry_id
+        self._attr_device_info = self.coordinator.device_info
+        self._attr_unique_id = self.coordinator.config_entry.entry_id
         self._aqi_data = self.coordinator.data.aqi_station
 
     def _handle_coordinator_update(self) -> None:
@@ -73,13 +73,4 @@ class MOENVAQIAirQualityEntity(CoordinatorEntity, AirQualityEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return other details about the sensor state."""
-        return {
-            "siteid": self._aqi_data.siteid,
-            "sitename": self._aqi_data.sitename,
-            "latitude": self._aqi_data.latitude,
-            "longitude": self._aqi_data.longitude,
-            "county": self._aqi_data.county,
-            "publishtime": self._aqi_data.publishtime,
-            "pollutant": self._aqi_data.pollutant,
-        }
+        return self.coordinator.data.aqi_extra_attributes

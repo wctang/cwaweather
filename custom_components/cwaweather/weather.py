@@ -99,7 +99,5 @@ class CWAWeatherEntity(weather.SingleCoordinatorWeatherEntity[CWAWeatherCoordina
         return self.coordinator.data.uv_index
 
     @property
-    def state_attributes(self):
-        attr = super().state_attributes
-        attr.update(self.coordinator.extra_attributes)
-        return attr
+    def extra_state_attributes(self):
+        return self.coordinator.extra_attributes_weather
