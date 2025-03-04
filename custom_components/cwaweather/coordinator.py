@@ -1,6 +1,7 @@
 import logging
 import math
 import re
+from pprint import pprint
 from operator import attrgetter
 from datetime import timedelta, datetime
 from dataclasses import dataclass
@@ -119,7 +120,11 @@ def _observe_weather_to_ha_condition(weathers, _now):
         else:
             wss.append(CWA_WEATHER_CONDITION_TO_HASS[x.replace("晴","").replace("多雲","").replace("陰","")])
 
-    res = Counter(wss).most_common(1)[0][0]
+    mm = Counter(wss).most_common(1)
+    if len(mm) == 0:
+        return None
+
+    res = mm[0][0]
     if res == weather.ATTR_CONDITION_SUNNY and (_now.hour >= 18 or _now.hour <= 5):
         res = weather.ATTR_CONDITION_CLEAR_NIGHT
     return res
@@ -335,10 +340,11 @@ class CWAWeatherCoordinator(DataUpdateCoordinator[CWAWeatherData]):
 
             self.extra_attributes_weather["station_weathers"] = ",".join(weathers)
             condition = _observe_weather_to_ha_condition(weathers, _now)
-            if condition == weather.ATTR_CONDITION_SUNNY:
-                if _now.hour >= 18 or _now.hour <= 5:
-                    condition = weather.ATTR_CONDITION_CLEAR_NIGHT
-            data.condition = condition
+            if condition:
+                if condition == weather.ATTR_CONDITION_SUNNY:
+                    if _now.hour >= 18 or _now.hour <= 5:
+                        condition = weather.ATTR_CONDITION_CLEAR_NIGHT
+                data.condition = condition
 
             if data.aqi_station is None or _now > data.aqi_publishtime + timedelta(hours=1.1):
                 sts: list[AQIStation] = await MOENV.get_aqi_hourly(session, self._api_key_moenv)
