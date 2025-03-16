@@ -13,21 +13,21 @@ async def _api_v2(session, dataset, params, is_json=True):
 
 @dataclass
 class AQIStation:
-    aqi: int = None
+    aqi: float = None
     co: float = None
     co_8hr: float = None
     county: str = None
     latitude: float = None
     longitude: float = None
     no: float = None
-    no2: int = None
+    no2: float = None
     nox: float = None
-    o3: int = None
-    o3_8hr: int = None
-    pm10: int = None
-    pm10_avg: int = None
-    pm2_5: int = None
-    pm2_5_avg: int = None
+    o3: float = None
+    o3_8hr: float = None
+    pm10: float = None
+    pm10_avg: float = None
+    pm2_5: float = None
+    pm2_5_avg: float = None
     pollutant: str = None
     publishtime: str = None
     siteid: str = None
@@ -35,7 +35,7 @@ class AQIStation:
     so2: float = None
     so2_avg: float = None
     status: str = None
-    wind_direc: int = None
+    wind_direc: float = None
     wind_speed: float = None
     _distance: float = None
 
@@ -62,12 +62,12 @@ class MOENV:
                 if v in ['', '-']:
                     continue
                 if k in s.__annotations__ or (k := k.replace(".", "_")) in s.__annotations__:
-                    if s.__annotations__[k] == int:
-                        setattr(s, k, int(v))
-                    elif s.__annotations__[k] == float:
+                    if s.__annotations__[k] == float:
                         setattr(s, k, float(v))
-                    else:
+                    elif s.__annotations__[k] == str:
                         setattr(s, k, v)
+                    else:
+                        raise Exception(f"{s}, {k}, {v}")
             res.append(s)
         return res
 
